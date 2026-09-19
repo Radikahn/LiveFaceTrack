@@ -118,7 +118,10 @@ export function registerProtocolHandler(): void {
     }
 
     const headers = new Headers(COI_HEADERS);
-    headers.set('content-type', MIME[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream');
+    headers.set(
+      'content-type',
+      MIME[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream'
+    );
     headers.set('content-length', String(data.byteLength));
     return new Response(new Uint8Array(data), { status: 200, headers });
   });

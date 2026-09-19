@@ -25,7 +25,7 @@ function has(cmd: string): boolean {
     .some((dir) => dir && fs.existsSync(path.join(dir, cmd)));
 }
 const canBuildSquirrel =
-  process.platform === 'win32' || (has('wine') || has('wine64')) && has('mono');
+  process.platform === 'win32' || ((has('wine') || has('wine64')) && has('mono'));
 
 const config: ForgeConfig = {
   packagerConfig: {

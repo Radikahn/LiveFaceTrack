@@ -98,7 +98,7 @@ The worker also reads `inputMetadata` at runtime and obeys a pinned size if it
 ever meets one, so a stock export degrades rather than breaks.
 
 **`asar.unpack: '**/*.wasm'` silently matches nothing.** `@electron/asar`
-matches with `matchBase: true` but *without* `dot: true`, so a leading `**/`
+matches with `matchBase: true` but _without_ `dot: true`, so a leading `**/`
 never descends into `.vite`. The working pattern is the bare
 `*.{node,wasm,onnx}` — matchBase makes it mean the same thing, and it actually
 reaches dot-directories.
@@ -106,7 +106,7 @@ reaches dot-directories.
 **ORT hangs, rather than failing, if it can't find its `.mjs` glue.** It spawns
 pthread workers from that file. Under a custom protocol it cannot guess the URL,
 and `InferenceSession.create` simply never settles — no error, no rejection.
-Set *both* halves of `wasmPaths`:
+Set _both_ halves of `wasmPaths`:
 
 ```ts
 ort.env.wasm.wasmPaths = { wasm: wasmUrl, mjs: mjsUrl };
@@ -144,9 +144,71 @@ These are properties of the platforms, not bugs:
 - Detecting at 320 loses small or distant faces. That is the trade being made;
   raise `target` in `DetectorOptions` if you need them back.
 
-## Panic key
+## Stopping an overlay
 
-A click-through, always-on-top, full-screen overlay with a bug in it is hard to
-dismiss. `Cmd+Shift+Escape` (macOS) or `Ctrl+Alt+Shift+O` (Windows) tears it
-down from anywhere; the tray menu shows which one was registered, since the
-first choice is not always available.
+The desktop overlay is click-through by design, which also means it cannot
+catch a click on its own Stop button. Three ways out, in the order you will
+reach for them:
+
+1. **The Stop pill**, top right of the overlay. The window keeps receiving
+   mouse _move_ events while ignoring clicks, so the stage hit-tests the
+   pointer against the pill and asks for real mouse events back only while the
+   cursor is over it. Everything else still passes through to the desktop.
+2. **The panic key** — `Cmd+Shift+Escape` on macOS, `Ctrl+Alt+Shift+O` on
+   Windows. Registered globally, works even if the renderer is wedged. The
+   first candidate is not always available (`Ctrl+Shift+Esc` is Task Manager on
+   Windows), so the accelerator that actually took is shown on the pill and in
+   the tray menu.
+3. **The tray icon**, tinted with the live mode's accent — blue for camera,
+   magenta for screen. Its menu has Stop and Quit.
+
+`npm run selftest` asserts that the panic key registered and that the stop
+surface is exposed, because the failure mode is an overlay you cannot dismiss.
+
+---
+
+## CI and releases
+
+`.github/workflows/ci.yml` runs on every PR and push to `main`:
+
+| Job     | Runner          | What                                                         |
+| ------- | --------------- | ------------------------------------------------------------ |
+| `check` | ubuntu          | `format:check`, `typecheck`, `verify:decode`                 |
+| `build` | macos + windows | package, **self-test the packaged app**, make distributables |
+
+The self-test runs against the packaged artifact rather than the source tree,
+because dev and packaged fail differently — cross-origin isolation, ORT
+threading and the asar paths are only real once it is packaged.
+
+### Releasing
+
+Versioning is automatic and driven by [Conventional
+Commits](https://www.conventionalcommits.org/):
+
+- `fix:` → patch, `feat:` → minor, `feat!:` / `BREAKING CHANGE:` → major
+- `docs:`, `chore:`, `refactor:`, `ci:`, `test:` do not trigger a release
+
+`release-please` keeps a "chore(main): release X.Y.Z" PR open on `main`,
+accumulating the changelog. **Merging that PR** bumps `package.json`, writes
+`CHANGELOG.md`, tags, and creates the GitHub release — which triggers the
+build matrix to attach:
+
+```
+Overlay-<version>-arm64.dmg              macOS Apple Silicon
+Overlay-<version>-x64.dmg                macOS Intel
+Overlay-darwin-<arch>-<version>.zip      macOS, portable
+Overlay-<version>-win32-x64-Setup.exe    Windows installer
+Overlay-win32-x64-<version>.zip          Windows, portable
+```
+
+Nothing is published by pushing to `main` alone; the release PR is the gate.
+
+**One repo setting is required:** Settings → Actions → General → Workflow
+permissions → enable _"Allow GitHub Actions to create and approve pull
+requests"_, or release-please cannot open its PR.
+
+Builds are unsigned unless `APPLE_IDENTITY` (and optionally `APPLE_API_KEY`,
+`APPLE_API_KEY_ID`, `APPLE_API_ISSUER`) are set as repository secrets and
+exported in the publish job. On macOS that matters more than usual: Gatekeeper
+blocks unsigned apps, and the Screen Recording grant resets whenever the
+signature changes.

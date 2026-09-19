@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# A newer push to the same branch makes the running one irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "24"
+
+jobs:
+  check:
+    name: Format, types, decode
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Format
+        run: npm run format:check
+
+      - name: Types
+        run: npm run typecheck
+
+      # Pins the YuNet decode bit-exact against OpenCV's FaceDetectorYN using
+      # committed fixtures, so this needs no Python and no model download.
+      # A subtly wrong decode produces plausible boxes that look fine on
+      # screen -- this is the only thing that catches it.
+      - name: Decode parity
+        run: npm run verify:decode
+
+  build:
+    name: Build ${{ matrix.platform }}-${{ matrix.arch }}
+    needs: check
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, platform: darwin, arch: arm64 }
+          - { os: macos-latest, platform: darwin, arch: x64 }
+          - { os: windows-latest, platform: win32, arch: x64 }
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Package
+        shell: bash
+        run: npm run package -- --platform=${{ matrix.platform }} --arch=${{ matrix.arch }}
+
+      # The strongest check we have, and the only one that covers cross-origin
+      # isolation, ORT's threaded WASM and the asar-unpacked paths -- all of
+      # which fail differently in a packaged build than in dev. Runs against
+      # the artifact that was just produced, not the source tree.
+      - name: Self-test the packaged app (macOS)
+        if: matrix.platform == 'darwin' && matrix.arch == 'arm64'
+        shell: bash
+        run: ./out/Overlay-darwin-arm64/Overlay.app/Contents/MacOS/overlay --selftest
+
+      - name: Self-test the packaged app (Windows)
+        if: matrix.platform == 'win32'
+        shell: bash
+        run: ./out/Overlay-win32-x64/overlay.exe --selftest
+
+      - name: Distributables
+        shell: bash
+        run: npm run make -- --platform=${{ matrix.platform }} --arch=${{ matrix.arch }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: overlay-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            out/make/**/*.dmg
+            out/make/**/*.zip
+            out/make/**/*Setup.exe
+          # CI builds are a smoke test, not a deliverable; releases are where
+          # binaries are meant to be kept.
+          retention-days: 7
+          if-no-files-found: error

@@ -1,0 +1,8 @@
+node_modules/
+out/
+.vite/
+dist/
+resources/
+test/fixtures/
+src/renderer/fonts/
+package-lock.json

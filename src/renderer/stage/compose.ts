@@ -21,11 +21,16 @@ export function mirrorDetection<T extends Detection>(det: T, frameWidth: number)
   const fx = (i: number) => frameWidth - p[i * 2];
   const fy = (i: number) => p[i * 2 + 1];
   const swapped = [
-    fx(KP.LEFT_EYE), fy(KP.LEFT_EYE),
-    fx(KP.RIGHT_EYE), fy(KP.RIGHT_EYE),
-    fx(KP.NOSE), fy(KP.NOSE),
-    fx(KP.LEFT_MOUTH), fy(KP.LEFT_MOUTH),
-    fx(KP.RIGHT_MOUTH), fy(KP.RIGHT_MOUTH),
+    fx(KP.LEFT_EYE),
+    fy(KP.LEFT_EYE),
+    fx(KP.RIGHT_EYE),
+    fy(KP.RIGHT_EYE),
+    fx(KP.NOSE),
+    fy(KP.NOSE),
+    fx(KP.LEFT_MOUTH),
+    fy(KP.LEFT_MOUTH),
+    fx(KP.RIGHT_MOUTH),
+    fy(KP.RIGHT_MOUTH),
   ];
   return { ...det, x: frameWidth - (det.x + det.w), pts: swapped };
 }

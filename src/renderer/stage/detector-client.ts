@@ -33,7 +33,11 @@ export type DetectorOptions = {
 export class WorkerDetector implements FaceDetector {
   private worker: Worker;
   private seq = 0;
-  private inflight: { seq: number; resolve: (d: Detection[]) => void; reject: (e: Error) => void } | null = null;
+  private inflight: {
+    seq: number;
+    resolve: (d: Detection[]) => void;
+    reject: (e: Error) => void;
+  } | null = null;
   private readyResolve!: (r: DetectorReady) => void;
   private readyReject!: (e: Error) => void;
 
