@@ -109,7 +109,10 @@ export function openCalibration(asset: AssetWithThumb, bytes: ArrayBuffer): void
   function draw(): void {
     const r = artRect();
     const k = r.w / asset.width;
-    for (const [name, marker] of [['right', right], ['left', left]] as const) {
+    for (const [name, marker] of [
+      ['right', right],
+      ['left', left],
+    ] as const) {
       dots[name].style.left = `${r.x + marker.x * k}px`;
       dots[name].style.top = `${r.y + marker.y * k}px`;
     }

@@ -10,8 +10,20 @@
     <!-- Rim refraction filter (§6). Gated in CSS behind reduced-transparency. -->
     <svg width="0" height="0" aria-hidden="true" style="position: absolute">
       <filter id="rim-refract" x="-20%" y="-20%" width="140%" height="140%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.012 0.02" numOctaves="2" seed="7" result="noise" />
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G" />
+        <feTurbulence
+          type="fractalNoise"
+          baseFrequency="0.012 0.02"
+          numOctaves="2"
+          seed="7"
+          result="noise"
+        />
+        <feDisplacementMap
+          in="SourceGraphic"
+          in2="noise"
+          scale="6"
+          xChannelSelector="R"
+          yChannelSelector="G"
+        />
       </filter>
     </svg>
 
@@ -19,8 +31,12 @@
 
     <div class="pane modes" role="tablist" aria-label="Capture source">
       <div class="modes__knob" aria-hidden="true"></div>
-      <button type="button" role="tab" data-mode-button="camera" aria-selected="true">Camera</button>
-      <button type="button" role="tab" data-mode-button="screen" aria-selected="false">Screen</button>
+      <button type="button" role="tab" data-mode-button="camera" aria-selected="true">
+        Camera
+      </button>
+      <button type="button" role="tab" data-mode-button="screen" aria-selected="false">
+        Screen
+      </button>
     </div>
 
     <p class="section-label">
@@ -36,7 +52,12 @@
       </div>
       <button type="button" class="add" data-add>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-          <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          <path
+            d="M7 2v10M2 7h10"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+          />
         </svg>
         Add PNG
       </button>
@@ -45,8 +66,18 @@
     <section class="pane" data-screen-panel hidden style="margin-top: 16px">
       <div class="sources" data-sources></div>
       <div class="toggle-row">
-        <span>Overlay my desktop<br /><small style="color: var(--ink-faint)">Click-through, always on top</small></span>
-        <button type="button" class="switch" data-overlay-toggle aria-pressed="false" aria-label="Overlay my desktop"></button>
+        <span
+          >Overlay my desktop<br /><small style="color: var(--ink-faint)"
+            >Click-through, always on top</small
+          ></span
+        >
+        <button
+          type="button"
+          class="switch"
+          data-overlay-toggle
+          aria-pressed="false"
+          aria-label="Overlay my desktop"
+        ></button>
       </div>
     </section>
 

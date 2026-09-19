@@ -13,7 +13,7 @@
 }
 
 :root {
-  --glass-tint: 14 17 22;          /* #0E1116 cool graphite */
+  --glass-tint: 14 17 22; /* #0E1116 cool graphite */
   --glass-alpha: 0.52;
   --glass-edge: 255 255 255;
   --ink: #f2f4f8;
@@ -37,8 +37,14 @@
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
   --mode-swap: 240ms;
 
-  font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system,
-    'Segoe UI Variable Text', 'Segoe UI', sans-serif;
+  font-family:
+    'Hanken Grotesk',
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI Variable Text',
+    'Segoe UI',
+    sans-serif;
   font-synthesis-weight: none;
   color-scheme: dark;
 }

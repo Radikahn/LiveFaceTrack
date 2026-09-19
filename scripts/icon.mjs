@@ -29,8 +29,11 @@ export function renderIcon(size) {
   const s = size / 1024; // design space is 1024
   const px = 1 / s; // one device pixel, in design units
   // macOS icon grid: the art sits inset from the canvas edge.
-  const hw = 400, hh = 400, radius = 190;
-  const ringR = 215, ringW = 34;
+  const hw = 400,
+    hh = 400,
+    radius = 190;
+  const ringR = 215,
+    ringW = 34;
 
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
@@ -45,13 +48,13 @@ export function renderIcon(size) {
       let col = mix(GRAPHITE_TOP, GRAPHITE_BOT, clamp01((dy + hh) / (2 * hh)));
 
       // Specular rim: a bright hairline just inside the top edge, fading down.
-      const rim = (1 - smoothstep(0, 5 * px, Math.abs(d + 1.5 * px))) *
-        clamp01(1 - (dy + hh) / (1.1 * hh));
+      const rim =
+        (1 - smoothstep(0, 5 * px, Math.abs(d + 1.5 * px))) * clamp01(1 - (dy + hh) / (1.1 * hh));
       col = mix(col, [255, 255, 255], rim * 0.55);
 
       // Lens ring: hue sweeps blue -> magenta around the circle.
       const rr = Math.hypot(dx, dy);
-      const ringA = (1 - smoothstep(ringW / 2 - px, ringW / 2 + px, Math.abs(rr - ringR)));
+      const ringA = 1 - smoothstep(ringW / 2 - px, ringW / 2 + px, Math.abs(rr - ringR));
       if (ringA > 0) {
         const ang = Math.atan2(dy, dx); // -pi..pi
         const t = clamp01((Math.cos(ang - Math.PI * 0.75) + 1) / 2);
@@ -62,7 +65,8 @@ export function renderIcon(size) {
       const inner = 1 - smoothstep(ringR - ringW / 2 - px, ringR - ringW / 2 + px, rr);
       if (inner > 0) {
         const glass = mix(col, [8, 10, 14], 0.55 * inner);
-        const hx = dx + 90, hy = dy + 110;
+        const hx = dx + 90,
+          hy = dy + 110;
         const spec = (1 - smoothstep(60, 240, Math.hypot(hx, hy * 1.4))) * 0.16;
         col = mix(glass, [255, 255, 255], spec * inner);
       }
@@ -78,7 +82,8 @@ export function renderIcon(size) {
 }
 
 function crc32(buf) {
-  let c, crc = 0xffffffff;
+  let c,
+    crc = 0xffffffff;
   for (let n = 0; n < buf.length; n++) {
     c = (crc ^ buf[n]) & 0xff;
     for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
@@ -106,8 +111,8 @@ export function encodePNG(rgba, size) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(size, 0);
   ihdr.writeUInt32BE(size, 4);
-  ihdr[8] = 8;  // bit depth
-  ihdr[9] = 6;  // colour type: RGBA
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 6; // colour type: RGBA
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
     chunk('IHDR', ihdr),
@@ -128,8 +133,8 @@ export function encodeICO(entries) {
     const o = i * 16;
     dir[o] = e.size >= 256 ? 0 : e.size;
     dir[o + 1] = e.size >= 256 ? 0 : e.size;
-    dir.writeUInt16LE(1, o + 4);   // colour planes
-    dir.writeUInt16LE(32, o + 6);  // bits per pixel
+    dir.writeUInt16LE(1, o + 4); // colour planes
+    dir.writeUInt16LE(32, o + 6); // bits per pixel
     dir.writeUInt32LE(e.png.length, o + 8);
     dir.writeUInt32LE(offset, o + 12);
     offset += e.png.length;
@@ -145,7 +150,8 @@ export function renderRing(size, [r, g, b]) {
   const rgba = Buffer.alloc(size * size * 4);
   const s = size / 44;
   const px = 1 / s;
-  const R = 16, W = 5;
+  const R = 16,
+    W = 5;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const dx = (x + 0.5) / s - 22;
@@ -154,7 +160,9 @@ export function renderRing(size, [r, g, b]) {
       const a = 1 - smoothstep(W / 2 - px, W / 2 + px, d);
       if (a <= 0) continue;
       const o = (y * size + x) * 4;
-      rgba[o] = r; rgba[o + 1] = g; rgba[o + 2] = b;
+      rgba[o] = r;
+      rgba[o + 1] = g;
+      rgba[o + 2] = b;
       rgba[o + 3] = Math.round(clamp01(a) * 255);
     }
   }

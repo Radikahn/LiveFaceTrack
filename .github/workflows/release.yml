@@ -1,0 +1,110 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  NODE_VERSION: "24"
+
+jobs:
+  # Keeps a release PR up to date from Conventional Commit messages on main.
+  # Merging that PR bumps the version, writes CHANGELOG.md, tags, and creates
+  # the GitHub release -- which is what gates the build job below.
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    name: Publish ${{ matrix.platform }}-${{ matrix.arch }}
+    needs: version
+    if: needs.version.outputs.released == 'true'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One platform failing should not strand the others; a partial release is
+      # easier to top up than to reassemble.
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, platform: darwin, arch: arm64 }
+          - { os: macos-latest, platform: darwin, arch: x64 }
+          - { os: windows-latest, platform: win32, arch: x64 }
+
+    steps:
+      # The tag, not the branch: release-please bumped package.json in the
+      # commit it tagged, and forge reads the version from there.
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.version.outputs.tag }}
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Package
+        shell: bash
+        run: npm run package -- --platform=${{ matrix.platform }} --arch=${{ matrix.arch }}
+
+      # Last gate before bytes reach a user. Covers cross-origin isolation, ORT
+      # threading and the asar-unpacked paths in the real artifact.
+      - name: Self-test the packaged app (macOS)
+        if: matrix.platform == 'darwin' && matrix.arch == 'arm64'
+        shell: bash
+        run: ./out/Overlay-darwin-arm64/Overlay.app/Contents/MacOS/overlay --selftest
+
+      - name: Self-test the packaged app (Windows)
+        if: matrix.platform == 'win32'
+        shell: bash
+        run: ./out/Overlay-win32-x64/overlay.exe --selftest
+
+      - name: Distributables
+        shell: bash
+        run: npm run make -- --platform=${{ matrix.platform }} --arch=${{ matrix.arch }}
+
+      # Squirrel names its installer without a version or arch, which collides
+      # the moment a release holds more than one. Everything else already
+      # carries both.
+      - name: Collect
+        id: collect
+        shell: bash
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          mkdir -p dist-release
+          shopt -s nullglob globstar
+          for f in out/make/**/*.dmg out/make/**/*.zip; do
+            cp "$f" dist-release/
+          done
+          for f in out/make/**/*Setup.exe; do
+            cp "$f" "dist-release/Overlay-${VERSION}-win32-${{ matrix.arch }}-Setup.exe"
+          done
+          ls -lh dist-release
+          test -n "$(ls -A dist-release)" || { echo "no artifacts produced"; exit 1; }
+
+      - name: Upload to release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ needs.version.outputs.tag }}" dist-release/* --clobber

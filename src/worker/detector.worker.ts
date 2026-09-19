@@ -11,13 +11,20 @@ import wasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.wasm?url';
 import mjsUrl from 'onnxruntime-web/ort-wasm-simd-threaded.mjs?url';
 import modelUrl from '../../resources/models/yunet.onnx?url';
 import type { Detection } from '@shared/types';
-import { decode, fitLetterbox, letterboxInto, preprocess, unletterbox, type Letterbox } from './yunet';
+import {
+  decode,
+  fitLetterbox,
+  letterboxInto,
+  preprocess,
+  unletterbox,
+  type Letterbox,
+} from './yunet';
 import type { WorkerIn, WorkerOut } from './protocol';
 
 /** A one-instruction SIMD module: validates only where 128-bit SIMD exists. */
 const SIMD_PROBE = new Uint8Array([
-  0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1,
-  8, 0, 65, 0, 253, 15, 253, 98, 11,
+  0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15,
+  253, 98, 11,
 ]);
 const hasSimd = (() => {
   try {
@@ -61,7 +68,7 @@ async function init(msg: Extract<WorkerIn, { type: 'init' }>) {
   // Without it, asking for threads throws rather than silently degrading.
   const isolated = typeof SharedArrayBuffer !== 'undefined' && self.crossOriginIsolated === true;
   const auto = Math.max(1, Math.min(4, navigator.hardwareConcurrency || 4));
-  ort.env.wasm.numThreads = isolated ? (msg.threads || auto) : 1;
+  ort.env.wasm.numThreads = isolated ? msg.threads || auto : 1;
   ort.env.logLevel = 'error';
 
   trace(`threads=${ort.env.wasm.numThreads} isolated=${isolated}; creating session`);

@@ -64,7 +64,9 @@ function glassOptions(): BrowserWindowConstructorOptions {
     transparent: false,
     backgroundColor: '#0E1116',
     titleBarStyle: isWin ? 'hidden' : 'default',
-    ...(isWin ? { titleBarOverlay: { color: '#00000000', symbolColor: '#F2F4F8', height: 38 } } : {}),
+    ...(isWin
+      ? { titleBarOverlay: { color: '#00000000', symbolColor: '#F2F4F8', height: 38 } }
+      : {}),
   };
 }
 
