@@ -6,3 +6,10 @@ resources/
 test/fixtures/
 src/renderer/fonts/
 package-lock.json
+
+# Written by release-please, not by hand. It formats these its own way
+# (`{".": "0.2.0"}`, no inner spaces) and rewrites them on every release, so
+# Prettier and the release bot would fight over them forever -- and the loser
+# is always the release, because format:check runs on the release PR.
+CHANGELOG.md
+.release-please-manifest.json
