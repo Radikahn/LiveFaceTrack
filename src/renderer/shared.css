@@ -1,0 +1,97 @@
+/* ---------------------------------------------------------------- tokens */
+/*
+ * A tool that lives at the edge of your screen while something more
+ * interesting happens in front of it: a lens filter you slide into place, not
+ * a dashboard. Small, light, legible over an arbitrary desktop.
+ */
+@font-face {
+  font-family: 'Hanken Grotesk';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: block;
+  src: url('./fonts/HankenGrotesk-latin.woff2') format('woff2');
+}
+
+:root {
+  --glass-tint: 14 17 22;          /* #0E1116 cool graphite */
+  --glass-alpha: 0.52;
+  --glass-edge: 255 255 255;
+  --ink: #f2f4f8;
+  --ink-dim: #949ba8;
+  --ink-faint: #5d6472;
+
+  --live-camera: #2b6bff;
+  --live-screen: #e0429b;
+  --accent: var(--live-camera);
+
+  --danger: #ff6b6b;
+
+  --r-pane: 18px;
+  --r-row: 12px;
+  --r-pill: 999px;
+
+  /* 8px grid, 20px gutters */
+  --gutter: 20px;
+  --unit: 8px;
+
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --mode-swap: 240ms;
+
+  font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI Variable Text', 'Segoe UI', sans-serif;
+  font-synthesis-weight: none;
+  color-scheme: dark;
+}
+
+/* Windows 10 and anything else without a native glass substrate: CSS carries
+   the whole look, so the tint has to be nearly opaque or it reads as a grey
+   box over a busy wallpaper (§6). */
+:root[data-native-glass='false'] {
+  --glass-alpha: 0.88;
+}
+
+[data-mode='screen'] {
+  --accent: var(--live-screen);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+body {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.45;
+  letter-spacing: -0.005em;
+  overflow: hidden;
+}
+
+/* The FPS readout must not jitter as digits change width -- which is also why
+   there is no monospace face anywhere in this app. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+  }
+}
