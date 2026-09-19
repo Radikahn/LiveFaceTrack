@@ -23,9 +23,9 @@ jobs:
     name: Version
     runs-on: ubuntu-latest
     outputs:
-      released: ${{ steps.release.outputs.release_created }}
-      tag: ${{ steps.release.outputs.tag_name }}
-      version: ${{ steps.release.outputs.version }}
+      released: ${{ steps.out.outputs.released }}
+      tag: ${{ steps.out.outputs.tag }}
+      version: ${{ steps.out.outputs.version }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -33,6 +33,42 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      # release-please declares no outputs in its action.yml -- it sets them at
+      # runtime, and in manifest mode namespaces them per package path (`.--
+      # tag_name`) while *also* setting bare names for a root package. Which you
+      # get is a detail of its internals, and guessing wrong does not error: the
+      # publish job below would simply never run and the release would sit there
+      # with no binaries attached. So read whatever it actually set, accept
+      # either spelling, and print the lot for when this inevitably changes.
+      - name: Resolve release outputs
+        id: out
+        shell: bash
+        env:
+          OUTPUTS: ${{ toJSON(steps.release.outputs) }}
+        run: |
+          echo "release-please outputs:"
+          echo "$OUTPUTS" | jq .
+
+          pick() { echo "$OUTPUTS" | jq -r --arg k "$1" '.[$k] // .[".--" + $k] // ""'; }
+          released=$(echo "$OUTPUTS" | jq -r '
+            .release_created // .[".--release_created"] // .releases_created // "false"')
+          tag=$(pick tag_name)
+          version=$(pick version)
+
+          {
+            echo "released=$released"
+            echo "tag=$tag"
+            echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
+          echo "resolved: released=$released tag=$tag version=$version"
+
+          # A release with no tag to upload against is worse than no release --
+          # it looks finished and ships nothing.
+          if [ "$released" = "true" ] && { [ -z "$tag" ] || [ -z "$version" ]; }; then
+            echo "::error::release was created but tag/version could not be resolved"
+            exit 1
+          fi
 
   publish:
     name: Publish ${{ matrix.platform }}-${{ matrix.arch }}
@@ -83,28 +119,76 @@ jobs:
         shell: bash
         run: npm run make -- --platform=${{ matrix.platform }} --arch=${{ matrix.arch }}
 
-      # Squirrel names its installer without a version or arch, which collides
-      # the moment a release holds more than one. Everything else already
-      # carries both.
-      - name: Collect
-        id: collect
+      - name: Collect distributables
         shell: bash
         env:
           VERSION: ${{ needs.version.outputs.version }}
+          PLATFORM: ${{ matrix.platform }}
+          ARCH: ${{ matrix.arch }}
         run: |
           mkdir -p dist-release
-          shopt -s nullglob globstar
-          for f in out/make/**/*.dmg out/make/**/*.zip; do
-            cp "$f" dist-release/
-          done
-          for f in out/make/**/*Setup.exe; do
-            cp "$f" "dist-release/Overlay-${VERSION}-win32-${{ matrix.arch }}-Setup.exe"
-          done
+          # `find`, not a `**` glob. GitHub's macOS runners resolve `shell: bash`
+          # to Apple's bash 3.2, where globstar does not exist: `shopt -s
+          # globstar` exits 1 and takes the whole step with it under `set -e`,
+          # and `**` collapses to `*` so the patterns match nothing regardless.
+          # The dmg sits at out/make/ while the zips are three levels down, so
+          # there is no single depth a plain glob could cover either.
+          find out/make -type f \( -name '*.dmg' -o -name '*.zip' \) \
+            -exec cp {} dist-release/ \;
+          # Squirrel names its installer with neither version nor arch, which
+          # collides the moment a release holds more than one platform.
+          find out/make -type f -name '*Setup.exe' \
+            -exec cp {} "dist-release/Overlay-${VERSION}-${PLATFORM}-${ARCH}-Setup.exe" \;
           ls -lh dist-release
-          test -n "$(ls -A dist-release)" || { echo "no artifacts produced"; exit 1; }
+          count=$(find dist-release -type f | wc -l | tr -d ' ')
+          echo "collected $count file(s) for ${PLATFORM}-${ARCH}"
+          [ "$count" -gt 0 ] || {
+            echo "::error::no distributables were produced for ${PLATFORM}-${ARCH}"
+            exit 1
+          }
 
       - name: Upload to release
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "${{ needs.version.outputs.tag }}" dist-release/* --clobber
+
+  # The publish matrix runs with fail-fast disabled so one platform cannot
+  # strand the others -- which means a leg can fail quietly and leave a release
+  # that looks finished but only ships half the platforms. This is the job that
+  # refuses to let that pass silently.
+  verify:
+    name: Verify release assets
+    needs: [version, publish]
+    if: always() && needs.version.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every platform must be attached
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          assets=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --json assets --jq '.assets[].name')
+          echo "attached to $TAG:"
+          echo "$assets" | sed 's/^/  /'
+
+          missing=0
+          check() {
+            if echo "$assets" | grep -qE "$1"; then
+              echo "  ok      $2"
+            else
+              echo "::error::$TAG is missing $2 (no asset matching /$1/)"
+              missing=1
+            fi
+          }
+          check 'arm64\.dmg$'             'macOS arm64 installer (.dmg)'
+          check 'darwin-arm64.*\.zip$'    'macOS arm64 portable (.zip)'
+          check '[^m]x64\.dmg$'           'macOS x64 installer (.dmg)'
+          check 'darwin-x64.*\.zip$'      'macOS x64 portable (.zip)'
+          check 'win32-x64.*Setup\.exe$'  'Windows x64 installer (Setup.exe)'
+          check 'win32-x64.*\.zip$'       'Windows x64 portable (.zip)'
+
+          [ "$missing" -eq 0 ] || exit 1
+          echo "all platforms attached"
