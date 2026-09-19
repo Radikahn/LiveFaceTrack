@@ -24,7 +24,9 @@ export const importBuffersSchema = z
     z.object({
       name: z.string().min(1).max(260),
       // 64 MB ceiling: a PNG larger than this is not a face sticker.
-      data: z.instanceof(ArrayBuffer).refine((b) => b.byteLength > 0 && b.byteLength < 64 * 1024 * 1024),
+      data: z
+        .instanceof(ArrayBuffer)
+        .refine((b) => b.byteLength > 0 && b.byteLength < 64 * 1024 * 1024),
     })
   )
   .max(64);
@@ -34,6 +36,8 @@ export const stageConfigSchema = z.object({
   sourceId: z.string().max(200).optional(),
   overlayDesktop: z.boolean(),
 });
+
+export const interactiveSchema = z.boolean();
 
 export const perfSchema = z.object({
   captureMs: finite,

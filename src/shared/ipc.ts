@@ -1,5 +1,10 @@
 import type {
-  AssetWithThumb, Mode, Permissions, PerfSample, ScreenSource, StageConfig,
+  AssetWithThumb,
+  Mode,
+  Permissions,
+  PerfSample,
+  ScreenSource,
+  StageConfig,
 } from './types';
 
 /** Channel names. Kept as one object so preload and main can't drift. */
@@ -18,6 +23,8 @@ export const CH = {
   stageStart: 'stage:start',
   stageStop: 'stage:stop',
   stageConfig: 'stage:config',
+  stageInteractive: 'stage:interactive',
+  stagePanicKey: 'stage:panicKey',
   appQuit: 'app:quit',
   windowMinimize: 'window:minimize',
   // main -> renderer (send)
@@ -69,6 +76,13 @@ export type OverlayAPI = {
     stop(): Promise<void>;
     /** Stage window only: the config it was launched with. */
     config(): Promise<StageConfig | null>;
+    /**
+     * Desktop-overlay mode only. The window is click-through, so the renderer
+     * asks for mouse events back while the pointer is over a control.
+     */
+    setInteractive(interactive: boolean): Promise<void>;
+    /** The accelerator that actually registered, to show as a hint. */
+    panicKey(): Promise<string | null>;
     reportPerf(sample: PerfSample): void;
     reportError(message: string): void;
     onState(cb: (s: StageState) => void): () => void;

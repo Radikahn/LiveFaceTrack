@@ -1,7 +1,12 @@
 import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { CH } from '@shared/ipc';
 import {
-  assetPatchSchema, idSchema, importBuffersSchema, perfSchema, stageConfigSchema,
+  assetPatchSchema,
+  idSchema,
+  importBuffersSchema,
+  interactiveSchema,
+  perfSchema,
+  stageConfigSchema,
 } from '@shared/schema';
 import type { PerfSample, StageConfig } from '@shared/types';
 import * as library from './library';
@@ -13,6 +18,8 @@ export type IpcContext = {
   startStage(cfg: StageConfig): Promise<{ ok: boolean; error?: string }>;
   stopStage(): void;
   stageConfig(): StageConfig | null;
+  setStageInteractive(interactive: boolean): void;
+  panicKey(): string | null;
   onPerf(sample: PerfSample): void;
   onStageError(message: string): void;
 };
@@ -68,33 +75,59 @@ export function registerIpc(ctx: IpcContext): void {
     return added;
   });
 
-  handle(CH.libraryImportBuffers, (raw) => importBuffersSchema.parse(raw), async (_e, files) => {
-    const added = await library.importFromBuffers(files);
-    if (added.length) await broadcastLibrary();
-    return added;
-  });
+  handle(
+    CH.libraryImportBuffers,
+    (raw) => importBuffersSchema.parse(raw),
+    async (_e, files) => {
+      const added = await library.importFromBuffers(files);
+      if (added.length) await broadcastLibrary();
+      return added;
+    }
+  );
 
-  handle(CH.libraryUpdate, (raw) => assetPatchSchema.parse(raw), async (_e, patch) => {
-    const updated = await library.update(patch);
-    if (updated) await broadcastLibrary();
-    return updated;
-  });
+  handle(
+    CH.libraryUpdate,
+    (raw) => assetPatchSchema.parse(raw),
+    async (_e, patch) => {
+      const updated = await library.update(patch);
+      if (updated) await broadcastLibrary();
+      return updated;
+    }
+  );
 
-  handle(CH.libraryRemove, (raw) => idSchema.parse(raw), async (_e, id) => {
-    await library.remove(id);
-    await broadcastLibrary();
-  });
+  handle(
+    CH.libraryRemove,
+    (raw) => idSchema.parse(raw),
+    async (_e, id) => {
+      await library.remove(id);
+      await broadcastLibrary();
+    }
+  );
 
-  handle(CH.libraryBytes, (raw) => idSchema.parse(raw), (_e, id) => library.bytes(id));
+  handle(
+    CH.libraryBytes,
+    (raw) => idSchema.parse(raw),
+    (_e, id) => library.bytes(id)
+  );
 
   handle(CH.capturePermissions, nothing, () => capture.permissions());
   handle(CH.captureRequestCamera, nothing, () => capture.requestCamera());
   handle(CH.captureOpenScreenSettings, nothing, () => capture.openScreenSettings());
   handle(CH.captureSources, nothing, () => capture.sources());
 
-  handle(CH.stageStart, (raw) => stageConfigSchema.parse(raw), (_e, cfg) => ctx.startStage(cfg));
+  handle(
+    CH.stageStart,
+    (raw) => stageConfigSchema.parse(raw),
+    (_e, cfg) => ctx.startStage(cfg)
+  );
   handle(CH.stageStop, nothing, () => ctx.stopStage());
   handle(CH.stageConfig, nothing, () => ctx.stageConfig());
+  handle(
+    CH.stageInteractive,
+    (raw) => interactiveSchema.parse(raw),
+    (_e, on) => ctx.setStageInteractive(on)
+  );
+  handle(CH.stagePanicKey, nothing, () => ctx.panicKey());
 
   handle(CH.appQuit, nothing, () => {
     ctx.stopStage();

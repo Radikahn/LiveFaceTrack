@@ -1,7 +1,14 @@
 import type { Asset, PerfSample, StageConfig, Track } from '@shared/types';
 import { WorkerDetector, type DetectorReady } from './detector-client';
 import { Tracker } from './track';
-import { assign, drawAsset, drawDebug, mirrorDetection, trackAlpha, type PreparedAsset } from './compose';
+import {
+  assign,
+  drawAsset,
+  drawDebug,
+  mirrorDetection,
+  trackAlpha,
+  type PreparedAsset,
+} from './compose';
 import { describeStreamError, openStream } from './capture-stream';
 
 const api = window.overlay;
@@ -18,6 +25,9 @@ class Stage {
   private ctx = this.canvas.getContext('2d', { alpha: true })!;
   private hud = document.querySelector<HTMLElement>('#hud')!;
   private message = document.querySelector<HTMLElement>('#message')!;
+  private controls = document.querySelector<HTMLElement>('#controls')!;
+  /** Tracks what main currently believes, so we only send on a change. */
+  private interactive = false;
 
   private cfg: StageConfig | null = null;
   private stream: MediaStream | null = null;
@@ -47,6 +57,7 @@ class Stage {
 
     document.body.dataset.mode = this.cfg.mode;
     document.body.dataset.overlay = String(this.cfg.mode === 'screen' && this.cfg.overlayDesktop);
+    this.setUpControls();
 
     try {
       this.stream = await openStream(this.cfg);
@@ -87,6 +98,57 @@ class Stage {
     this.resize();
     window.addEventListener('resize', () => this.resize());
     this.schedule();
+  }
+
+  /**
+   * The Stop button, and the click-through carve-out that makes it usable.
+   *
+   * Shown as soon as the config arrives rather than after capture starts: if
+   * the stream never opens, this pill is the way out of an overlay that would
+   * otherwise be a transparent, always-on-top window with no affordances.
+   */
+  private setUpControls(): void {
+    const overlayMode = this.cfg?.mode === 'screen' && this.cfg.overlayDesktop;
+    this.controls.hidden = false;
+    document.querySelector('#live-label')!.textContent =
+      this.cfg?.mode === 'screen' ? 'Screen overlay is live' : 'Camera overlay is live';
+
+    document.querySelector('#stop')!.addEventListener('click', () => {
+      this.stop();
+      void api.stage.stop();
+    });
+
+    if (!overlayMode) return;
+
+    void api.stage.panicKey().then((key) => {
+      if (key) {
+        document.querySelector('#panic-hint')!.textContent = key.replace(/\+/g, ' + ');
+      }
+    });
+
+    // `forward: true` keeps mousemove flowing even while the window ignores
+    // mouse events, so we can tell when the pointer is over the pill and ask
+    // for real events back just for that region.
+    const sync = (x: number, y: number) => {
+      const r = this.controls.getBoundingClientRect();
+      // A few px of slack: releasing the capture the instant the pointer grazes
+      // the edge makes the button feel like it is dodging the cursor.
+      const pad = 4;
+      const inside =
+        x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
+      if (inside === this.interactive) return;
+      this.interactive = inside;
+      void api.stage.setInteractive(inside);
+    };
+
+    window.addEventListener('mousemove', (e) => sync(e.clientX, e.clientY));
+    // If the pointer leaves the window entirely we may never get another move
+    // event, so drop the capture rather than leaving a live hole in the overlay.
+    window.addEventListener('mouseleave', () => {
+      if (!this.interactive) return;
+      this.interactive = false;
+      void api.stage.setInteractive(false);
+    });
   }
 
   private firstFrame(): Promise<void> {
@@ -250,8 +312,8 @@ class Stage {
     this.message.hidden = false;
     this.message.textContent = message;
     api.stage.reportError(message);
-    // A click-through overlay cannot show an error usefully -- and cannot be
-    // dismissed by clicking it. Hand the user back to Home, which displays it.
+    // A click-through overlay cannot show an error usefully. Hand the user back
+    // to Home, which displays it -- the Stop pill stays live until it does.
     if (this.cfg?.mode === 'screen' && this.cfg.overlayDesktop) {
       void api.stage.stop();
     }

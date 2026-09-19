@@ -8,6 +8,19 @@
   </head>
   <body data-mode="camera" data-overlay="false">
     <canvas id="stage"></canvas>
+
+    <!--
+      The only affordance on a click-through overlay. It has to be reachable
+      without the window swallowing clicks meant for whatever is underneath,
+      so stage.ts hit-tests the pointer against it and toggles mouse capture.
+    -->
+    <div id="controls" hidden>
+      <span id="live" aria-hidden="true"></span>
+      <span id="live-label">Overlay is live</span>
+      <button type="button" id="stop">Stop</button>
+      <span id="panic-hint" class="tabular"></span>
+    </div>
+
     <p id="message">Starting…</p>
     <div id="hud" class="tabular" hidden></div>
     <script type="module" src="./stage.ts"></script>

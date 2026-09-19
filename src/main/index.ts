@@ -1,5 +1,12 @@
 import {
-  app, BrowserWindow, globalShortcut, Menu, nativeImage, session, systemPreferences, Tray,
+  app,
+  BrowserWindow,
+  globalShortcut,
+  Menu,
+  nativeImage,
+  session,
+  systemPreferences,
+  Tray,
 } from 'electron';
 import path from 'node:path';
 import { CH, type StageState } from '@shared/ipc';
@@ -87,6 +94,18 @@ function stopStage(): void {
   if (!quitting) home?.show();
 }
 
+/**
+ * The desktop overlay is click-through, which is the point -- but it also means
+ * its own Stop button cannot be clicked. `forward: true` keeps mouse *move*
+ * events flowing to the renderer, so the stage hit-tests the pointer against
+ * its controls and asks for real mouse events back only while it is over one.
+ */
+function setStageInteractive(interactive: boolean): void {
+  if (!stage || stage.isDestroyed()) return;
+  if (!stageCfg || stageCfg.mode !== 'screen' || !stageCfg.overlayDesktop) return;
+  stage.setIgnoreMouseEvents(!interactive, { forward: true });
+}
+
 /* ------------------------------------------------------- panic + lifecycle */
 
 /**
@@ -118,7 +137,12 @@ function registerPanicKey(): void {
 function updateTray(): void {
   if (!tray) return;
   const mode = stageCfg?.mode;
-  const file = mode === 'camera' ? 'tray-camera.png' : mode === 'screen' ? 'tray-screen.png' : 'trayTemplate.png';
+  const file =
+    mode === 'camera'
+      ? 'tray-camera.png'
+      : mode === 'screen'
+        ? 'tray-screen.png'
+        : 'trayTemplate.png';
   const image = nativeImage.createFromPath(resource(file));
   // Only the idle glyph gets system tinting; the live ones carry the accent.
   image.setTemplateImage(!mode);
@@ -126,11 +150,26 @@ function updateTray(): void {
   tray.setToolTip(mode ? `Overlay - ${mode} is live` : 'Overlay');
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: mode ? `Stop ${mode} overlay` : 'Not running', enabled: Boolean(mode), click: stopStage },
+      {
+        label: mode ? `Stop ${mode} overlay` : 'Not running',
+        enabled: Boolean(mode),
+        click: stopStage,
+      },
       { type: 'separator' },
-      { label: 'Show Overlay', click: () => { home?.show(); home?.focus(); } },
+      {
+        label: 'Show Overlay',
+        click: () => {
+          home?.show();
+          home?.focus();
+        },
+      },
       ...(panicAccelerator
-        ? [{ label: `Panic key: ${panicAccelerator.replace(/\+/g, ' + ')}`, enabled: false } as const]
+        ? [
+            {
+              label: `Panic key: ${panicAccelerator.replace(/\+/g, ' + ')}`,
+              enabled: false,
+            } as const,
+          ]
         : []),
       { type: 'separator' },
       { label: 'Quit', click: () => app.quit() },
@@ -153,7 +192,9 @@ function runSelftest(): void {
     },
   });
   const threads = process.env.OVERLAY_THREADS;
-  void win.loadURL(pageUrl('selftest') + (threads ? `?threads=${encodeURIComponent(threads)}` : ''));
+  void win.loadURL(
+    pageUrl('selftest') + (threads ? `?threads=${encodeURIComponent(threads)}` : '')
+  );
   // A hang is a failure too -- most often ORT never resolving because
   // SharedArrayBuffer is missing.
   setTimeout(() => {
@@ -168,7 +209,8 @@ function hardenSession(): void {
   // Media is the whole point of the app, but only for our own pages.
   ses.setPermissionRequestHandler((contents, permission, callback) => {
     const url = contents.getURL();
-    const ours = url.startsWith('app://overlay/') || (isDev() && url.startsWith('http://localhost'));
+    const ours =
+      url.startsWith('app://overlay/') || (isDev() && url.startsWith('http://localhost'));
     callback(ours && (permission === 'media' || permission === 'display-capture'));
   });
   ses.setPermissionCheckHandler((_c, permission) => permission === 'media');
@@ -186,7 +228,11 @@ function hardenSession(): void {
     if (isDev() || selftest) {
       contents.on('console-message', (details) => {
         const url = contents.getURL();
-        const where = url.includes('/stage/') ? 'stage' : url.includes('/selftest/') ? 'selftest' : 'home';
+        const where = url.includes('/stage/')
+          ? 'stage'
+          : url.includes('/selftest/')
+            ? 'selftest'
+            : 'home';
         console.log(`[${where}:${details.level}] ${details.message}`);
       });
     }
@@ -208,7 +254,9 @@ if (!app.requestSingleInstanceLock()) {
 
     tray = new Tray(nativeImage.createFromPath(resource('trayTemplate.png')));
     home = createHomeWindow();
-    home.on('closed', () => { home = null; });
+    home.on('closed', () => {
+      home = null;
+    });
     updateTray();
 
     registerIpc({
@@ -216,12 +264,15 @@ if (!app.requestSingleInstanceLock()) {
       startStage,
       stopStage,
       stageConfig: () => stageCfg,
+      setStageInteractive,
+      panicKey: () => panicAccelerator,
       onPerf: (sample: PerfSample) => {
-        if (isDev()) process.stdout.write(
-          `\r[overlay] ${sample.fps.toFixed(0)}fps  cap ${sample.captureMs.toFixed(1)}  ` +
-          `infer ${sample.inferMs.toFixed(1)}  draw ${sample.drawMs.toFixed(1)}  ` +
-          `faces ${sample.faces}  threads ${sample.threads}${sample.isolated ? '' : ' NOT-ISOLATED'}   `
-        );
+        if (isDev())
+          process.stdout.write(
+            `\r[overlay] ${sample.fps.toFixed(0)}fps  cap ${sample.captureMs.toFixed(1)}  ` +
+              `infer ${sample.inferMs.toFixed(1)}  draw ${sample.drawMs.toFixed(1)}  ` +
+              `faces ${sample.faces}  threads ${sample.threads}${sample.isolated ? '' : ' NOT-ISOLATED'}   `
+          );
       },
       onStageError: (message) => {
         if (selftest && message.startsWith('SELFTEST')) {
@@ -241,14 +292,18 @@ if (!app.requestSingleInstanceLock()) {
       if (selftest) return;
       if (!home) {
         home = createHomeWindow();
-        home.on('closed', () => { home = null; });
+        home.on('closed', () => {
+          home = null;
+        });
       } else {
         home.show();
       }
     });
   });
 
-  app.on('before-quit', () => { quitting = true; });
+  app.on('before-quit', () => {
+    quitting = true;
+  });
   app.on('will-quit', () => globalShortcut.unregisterAll());
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
