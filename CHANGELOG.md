@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/Radikahn/LiveFaceTrack/compare/v0.2.0...v0.2.1) (2026-11-14)
+
+
+### Build & packaging
+
+* **deps-dev:** bump vite from 7.3.6 to 7.3.7 ([5a8c07d](https://github.com/Radikahn/LiveFaceTrack/commit/5a8c07dada48cddcc335fb82d56d47b6b98b5ec1))
+* **deps-dev:** bump vite from 7.3.6 to 7.3.7 ([c67ac5f](https://github.com/Radikahn/LiveFaceTrack/commit/c67ac5f2cd91b2444d049bd1bf1428fa41d224e4))
+
 ## [0.2.0](https://github.com/Radikahn/LiveFaceTrack/compare/v0.1.0...v0.2.0) (2026-09-19)
 
 
